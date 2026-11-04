@@ -10,6 +10,11 @@
 .progress-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#ff1681,#ff6500); }
 .checklist-summary { position: relative; margin: 0 0 16px; padding-bottom: 25px; }
 .checklist-summary .progress-track { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 5px; border-radius: 0 0 10px 10px; }
+.ceremony-filter { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin: 0 0 14px; }
+.ceremony-filter label { display: grid; gap: 6px; width: min(100%,420px); color: #765965; font-size: 12px; font-weight: 700; }
+.ceremony-filter input { width: 100%; min-height: 48px; padding: 10px 13px; border: 1px solid #e6b4cb; border-radius: 8px; background: #fff; color: #542638; font: 16px 'DM Sans',sans-serif; }
+.ceremony-filter input:focus { border-color: #ff1681; outline: 2px solid #ff16812b; }
+.ceremony-filter > span { padding-bottom: 14px; color: #765965; font-size: 12px; }
 .quick-access { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin: 0 0 28px; }
 .quick-access button { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 54px; padding: 11px 12px; border: 1px solid #f3dce5; border-radius: 10px; background: #fff; color: #542638; text-align: left; font-size: 12px; font-weight: 700; }
 .quick-access button svg:first-child { flex: none; color: #b20c5e; }
@@ -44,6 +49,9 @@
 }
 
 @media (max-width: 650px) {
+  .ceremony-filter { display: grid; gap: 5px; }
+  .ceremony-filter label { width: 100%; }
+  .ceremony-filter > span { padding-bottom: 0; }
   .dashboard-stats { grid-template-columns: 1fr; }
   .dashboard-stats .stat-card { min-height: 72px; }
   .progress-panel { margin: -10px 0 20px; padding: 13px; }

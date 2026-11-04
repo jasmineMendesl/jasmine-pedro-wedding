@@ -230,13 +230,17 @@ function Checklist({ tasks, onToggle, onAdd, onEdit }: { tasks: Task[]; onToggle
   }
 
 function CeremonyChecklist({ tasks, onToggle, onAdd, onEdit }: { tasks: Task[]; onToggle: (task: Task) => void; onAdd: () => void; onEdit: (task: Task) => void }) {
-  const groups = tasks.reduce<Record<string, Task[]>>((all, task) => { const key = task.category || 'Sem categoria'; (all[key] ??= []).push(task); return all }, {})
+  const [assigneeFilter, setAssigneeFilter] = useState('')
+  const search = assigneeFilter.trim().toLocaleLowerCase('pt-BR')
+  const filteredTasks = useMemo(() => tasks.filter(task => !search || (task.assignee ?? '').toLocaleLowerCase('pt-BR').includes(search)), [tasks, search])
+  const groups = filteredTasks.reduce<Record<string, Task[]>>((all, task) => { const key = task.category || 'Sem categoria'; (all[key] ??= []).push(task); return all }, {})
   const completed = tasks.filter(taskDone).length
   const progress = tasks.length ? Math.round(completed / tasks.length * 100) : 0
   return <div className="content">
     <PageHeading eyebrow="EQUIPE DO CERIMONIAL" title="Checklist do cerimonial" text="Organize as tarefas da equipe e acompanhe o que já foi concluído." action={<button className="primary-button touch-button" onClick={onAdd}><Plus size={18}/> Novo item</button>}/>
+    <div className="ceremony-filter"><label htmlFor="ceremony-assignee-filter">Filtrar por nome do responsável<input id="ceremony-assignee-filter" type="search" value={assigneeFilter} onChange={event => setAssigneeFilter(event.target.value)} placeholder="Digite um nome"/></label><span>{filteredTasks.length} de {tasks.length} itens</span></div>
     <div className="checklist-summary"><strong>{completed} de {tasks.length} concluídos</strong><span>{progress}%</span><div className="progress-track"><i style={{ width: `${progress}%` }}/></div></div>
-    {Object.entries(groups).length ? <div className="checklist-groups">{Object.entries(groups).map(([category, items]) => <section className="task-card category-card" key={category}><div className="category-heading"><span className="category-pin"/><h2>{category}</h2><span>{items.length} {items.length === 1 ? 'item' : 'itens'}</span></div>{items.map(task => <TaskRow key={task.id} task={task} onToggle={onToggle} onEdit={onEdit}/>)}</section>)}</div> : <EmptyState icon={<ClipboardCheck/>} title="Checklist do cerimonial vazio" text="Adicione o primeiro item para a equipe acompanhar as tarefas." action={<button className="primary-button touch-button" onClick={onAdd}><Plus size={18}/> Adicionar item</button>}/>}
+    {filteredTasks.length ? <div className="checklist-groups">{Object.entries(groups).map(([category, items]) => <section className="task-card category-card" key={category}><div className="category-heading"><span className="category-pin"/><h2>{category}</h2><span>{items.length} {items.length === 1 ? 'item' : 'itens'}</span></div>{items.map(task => <TaskRow key={task.id} task={task} onToggle={onToggle} onEdit={onEdit}/>)}</section>)}</div> : tasks.length ? <EmptyState icon={<ClipboardCheck/>} title="Nenhum item encontrado" text="Não há itens com esse nome de responsável. Limpe o filtro para ver a lista completa."/> : <EmptyState icon={<ClipboardCheck/>} title="Checklist do cerimonial vazio" text="Adicione o primeiro item para a equipe acompanhar as tarefas." action={<button className="primary-button touch-button" onClick={onAdd}><Plus size={18}/> Adicionar item</button>}/>}
   </div>
 }
 
