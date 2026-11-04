@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarDays, Check, CheckSquare, ChevronRight, ContactRound, Download, Flower2, Heart, House, KeyRound, ListChecks, LogOut, MapPin, Plus, ShieldCheck, Sun, Trash2, Users, X } from 'lucide-react'
+import { CalendarDays, Check, CheckSquare, ChevronRight, ClipboardCheck, ContactRound, Download, Flower2, Heart, House, KeyRound, ListChecks, LogOut, MapPin, Plus, ShieldCheck, Sun, Trash2, Users, X } from 'lucide-react'
 import { useWeddingData } from './hooks/useWeddingData'
 import { useSessionAccess } from './hooks/useSessionAccess'
 import type { ScheduleEntry, Task, Vendor } from './types'
 
-type Page = 'Início' | 'Checklist' | 'Fornecedores' | 'Cronograma' | 'Véspera'
+type Page = 'Início' | 'Checklist' | 'Fornecedores' | 'Cronograma' | 'Véspera' | 'Cerimonial'
 const pages: { label: Page; icon: typeof Heart; short: string }[] = [
   { label: 'Início', icon: House, short: 'Início' },
   { label: 'Checklist', icon: ListChecks, short: 'Tarefas' },
@@ -12,19 +12,22 @@ const pages: { label: Page; icon: typeof Heart; short: string }[] = [
   { label: 'Cronograma', icon: CalendarDays, short: 'Dia 17/11' },
   { label: 'Véspera', icon: Sun, short: 'Véspera' },
 ]
+const ceremonyPage = { label: 'Cerimonial' as const, icon: ClipboardCheck, short: 'Cerimonial' }
+const allPages = [...pages, ceremonyPage]
 const pageSlugs: Record<Page, string> = {
   'Início': '',
   Checklist: 'checklist',
   Fornecedores: 'fornecedores',
   Cronograma: 'cronograma',
   Véspera: 'vespera',
+  Cerimonial: 'checklist-cerimonial',
 }
 const pageFromLocation = (): Page => {
   const baseUrl = import.meta.env.BASE_URL
   const pathname = window.location.pathname
   const pathWithinApp = pathname.startsWith(baseUrl) ? pathname.slice(baseUrl.length) : pathname.replace(/^\/+/, '')
   const slug = pathWithinApp.replace(/\/+$/, '')
-  return pages.find(({ label }) => pageSlugs[label] === slug)?.label ?? 'Início'
+  return allPages.find(({ label }) => pageSlugs[label] === slug)?.label ?? 'Início'
 }
 const visibleTask = (task: Task) => task.category?.toLocaleLowerCase('pt-BR') !== 'financeiro'
 const taskDone = (task: Task) => task.done || task.status === 'completed'
@@ -95,12 +98,22 @@ function Workspace({ memberName, onSignOut }: { memberName: string; onSignOut: (
   const [vendorModal, setVendorModal] = useState(false)
   const [editingEvent, setEditingEvent] = useState<ScheduleEntry | null>(null)
   const [eventModal, setEventModal] = useState(false)
+  const [editingCeremonyTask, setEditingCeremonyTask] = useState<Task | null>(null)
+  const [ceremonyTaskModal, setCeremonyTaskModal] = useState(false)
   const tasks = useMemo(() => data.tasks.filter(visibleTask), [data.tasks])
+  const ceremonyTasks = Array.isArray(data.ceremonialTasks) ? data.ceremonialTasks : []
+  const navigationPages = allPages
   const pending = tasks.filter(task => !taskDone(task))
   const completed = tasks.filter(taskDone)
   const saveTask = (task: Task) => setData(d => ({ ...d, tasks: d.tasks.some(t => t.id === task.id) ? d.tasks.map(t => t.id === task.id ? { ...t, ...task } : t) : [...d.tasks, task] }))
   const deleteTask = (id: string) => setData(d => ({ ...d, tasks: d.tasks.filter(t => t.id !== id) }))
   const toggleTask = (task: Task) => setData(d => ({ ...d, tasks: d.tasks.map(t => t.id === task.id ? { ...t, done: !taskDone(t), status: taskDone(t) ? 'pending' : 'completed' } : t) }))
+  const saveCeremonyTask = (task: Task) => setData(d => {
+    const currentTasks = Array.isArray(d.ceremonialTasks) ? d.ceremonialTasks : []
+    return { ...d, ceremonialTasks: currentTasks.some(item => item.id === task.id) ? currentTasks.map(item => item.id === task.id ? { ...item, ...task } : item) : [...currentTasks, task] }
+  })
+  const deleteCeremonyTask = (id: string) => setData(d => ({ ...d, ceremonialTasks: (Array.isArray(d.ceremonialTasks) ? d.ceremonialTasks : []).filter(task => task.id !== id) }))
+  const toggleCeremonyTask = (task: Task) => setData(d => ({ ...d, ceremonialTasks: (Array.isArray(d.ceremonialTasks) ? d.ceremonialTasks : []).map(item => item.id === task.id ? { ...item, done: !taskDone(item), status: taskDone(item) ? 'pending' : 'completed' } : item) }))
   const saveVendor = (vendor: Vendor) => setData(d => ({ ...d, vendors: d.vendors.some(v => v.id === vendor.id) ? d.vendors.map(v => v.id === vendor.id ? { ...v, ...vendor } : v) : [...d.vendors, vendor] }))
   const saveEvent = (entry: ScheduleEntry) => setData(d => ({ ...d, schedule: [...(d.schedule ?? []).filter(e => e.id !== entry.id), entry].sort((a, b) => a.time.localeCompare(b.time)) }))
   const openNewTask = (day: 'planning' | 'eve' | 'wedding' = 'planning') => { setTaskDay(day); setEditingTask(null); setTaskModal(true) }
@@ -119,7 +132,7 @@ function Workspace({ memberName, onSignOut }: { memberName: string; onSignOut: (
   if (syncStatus === 'connecting') return <div className="loading-screen"><Flower2 size={28}/><span>Carregando o planejamento...</span></div>
 
   return <div className="app-shell">
-    <aside className="sidebar"><div className="brand"><span className="brand-mark"><Flower2 size={21}/></span><span>Jasmine <i>&</i> Pedro<small>WEDDING PLANNER</small></span></div><div className="side-caption">PLANEJAMENTO</div><nav>{pages.map(({ label, icon: Icon }) => <button key={label} className={`nav-item ${page === label ? 'active' : ''}`} onClick={() => navigateToPage(label)}><Icon size={19}/><span>{label}</span>{page === label && <span className="nav-dot"/>}</button>)}</nav><div className="sidebar-bottom"><div className="love-note"><Heart size={17}/><p>Um dia para celebrar<br/>uma vida inteira.</p></div><span>FEITO COM CARINHO</span></div></aside>
+    <aside className="sidebar"><div className="brand"><span className="brand-mark"><Flower2 size={21}/></span><span>Jasmine <i>&</i> Pedro<small>WEDDING PLANNER</small></span></div><div className="side-caption">PLANEJAMENTO</div><nav>{navigationPages.map(({ label, icon: Icon }) => <button key={label} className={`nav-item ${page === label ? 'active' : ''}`} onClick={() => navigateToPage(label)}><Icon size={19}/><span>{label}</span>{page === label && <span className="nav-dot"/>}</button>)}</nav><div className="sidebar-bottom"><div className="love-note"><Heart size={17}/><p>Um dia para celebrar<br/>uma vida inteira.</p></div><span>FEITO COM CARINHO</span></div></aside>
     <main className="main-area"><header className="topbar"><div className="breadcrumb">JASMINE & PEDRO <ChevronRight size={14}/><span>{page.toLocaleUpperCase('pt-BR')}</span></div><div className="topbar-right"><span className={`sync-indicator ${syncStatus}`}><i/><span className="sync-desktop">{syncStatus === 'saving' ? 'Salvando…' : syncStatus === 'synced' ? 'Sincronizado' : syncStatus === 'conflict' ? 'Conflito de sincronização' : syncStatus === 'error' ? 'Falha ao sincronizar' : 'Somente neste dispositivo'}</span><span className="sync-mobile">{syncStatus === 'saving' ? 'Salvando' : syncStatus === 'synced' ? 'OK' : syncStatus === 'conflict' ? 'Conflito' : syncStatus === 'error' ? 'Erro' : 'Local'}</span></span><InstallAppButton/>{memberName && memberName !== 'Planejamento local' && <button className="account-button" onClick={() => void onSignOut()} title={`Sair de ${memberName}`} aria-label="Sair"><span>{memberName.slice(0, 1).toLocaleUpperCase('pt-BR')}</span><LogOut size={15}/></button>}</div></header>
       {syncConflict && <section className="sync-conflict" role="alert"><div><strong>Há alterações em outro dispositivo.</strong><span>Escolha qual versão manter para evitar sobrescrever dados.</span></div><div><button onClick={() => resolveSyncConflict('remote')}>Usar versão do Supabase</button><button onClick={() => resolveSyncConflict('local')}>Manter esta versão</button></div></section>}
       {page === 'Início' && <Dashboard data={data} tasks={tasks} pending={pending} completed={completed} schedule={data.schedule ?? []} setPage={navigateToPage} onToggle={toggleTask} onAdd={() => openNewTask()}/ >}
@@ -127,11 +140,13 @@ function Workspace({ memberName, onSignOut }: { memberName: string; onSignOut: (
       {page === 'Fornecedores' && <Vendors vendors={data.vendors} onAdd={() => { setEditingVendor(null); setVendorModal(true) }} onEdit={vendor => { setEditingVendor(vendor); setVendorModal(true) }}/ >}
       {page === 'Cronograma' && <SchedulePage entries={data.schedule ?? []} onAdd={() => { setEditingEvent(null); setEventModal(true) }} onEdit={entry => { setEditingEvent(entry); setEventModal(true) }}/ >}
       {page === 'Véspera' && <EvePage tasks={tasks.filter(task => task.day === 'eve')} onToggle={toggleTask} onAdd={() => openNewTask('eve')} onEdit={task => { setEditingTask(task); setTaskModal(true) }}/ >}
+      {page === 'Cerimonial' && <CeremonyChecklist tasks={ceremonyTasks} onToggle={toggleCeremonyTask} onAdd={() => { setEditingCeremonyTask(null); setCeremonyTaskModal(true) }} onEdit={task => { setEditingCeremonyTask(task); setCeremonyTaskModal(true) }}/ >}
     </main>
-    <nav className="mobile-nav" aria-label="Navegação principal">{pages.map(({ label, icon: Icon, short }) => <button key={label} onClick={() => navigateToPage(label)} className={page === label ? 'selected' : ''}><Icon size={21}/><span>{short}</span></button>)}</nav>
+    <nav className="mobile-nav mobile-nav-ceremony" aria-label="Navegação principal">{navigationPages.map(({ label, icon: Icon, short }) => <button key={label} onClick={() => navigateToPage(label)} className={page === label ? 'selected' : ''}><Icon size={21}/><span>{short}</span></button>)}</nav>
     {taskModal && <TaskModal task={editingTask} initialDay={taskDay} onClose={() => setTaskModal(false)} onSave={task => { saveTask(task); setTaskModal(false) }} onDelete={deleteTask}/ >}
     {vendorModal && <VendorModal vendor={editingVendor} onClose={() => setVendorModal(false)} onSave={vendor => { saveVendor(vendor); setVendorModal(false) }}/ >}
     {eventModal && <ScheduleModal entry={editingEvent} onClose={() => setEventModal(false)} onSave={entry => { saveEvent(entry); setEventModal(false) }}/ >}
+    {ceremonyTaskModal && <CeremonyTaskModal task={editingCeremonyTask} onClose={() => setCeremonyTaskModal(false)} onSave={task => { saveCeremonyTask(task); setCeremonyTaskModal(false) }} onDelete={deleteCeremonyTask}/ >}
   </div>
 }
 
@@ -214,6 +229,17 @@ function Checklist({ tasks, onToggle, onAdd, onEdit }: { tasks: Task[]; onToggle
     {Object.entries(groups).length ? <div className="checklist-groups">{Object.entries(groups).map(([category, items]) => <section className="task-card category-card" key={category}><div className="category-heading"><span className="category-pin"/><h2>{category}</h2><span>{items.length} {items.length === 1 ? 'tarefa' : 'tarefas'}</span></div>{items.map(task => <TaskRow key={task.id} task={task} onToggle={onToggle} onEdit={onEdit}/>)}</section>)}</div> : <EmptyState icon={<ListChecks/>} title="Checklist pronto para começar" text="Adicione tarefas e organize por categoria, responsável e prazo." action={<button className="primary-button touch-button" onClick={onAdd}><Plus size={18}/> Nova tarefa</button>}/>}</div>
   }
 
+function CeremonyChecklist({ tasks, onToggle, onAdd, onEdit }: { tasks: Task[]; onToggle: (task: Task) => void; onAdd: () => void; onEdit: (task: Task) => void }) {
+  const groups = tasks.reduce<Record<string, Task[]>>((all, task) => { const key = task.category || 'Sem categoria'; (all[key] ??= []).push(task); return all }, {})
+  const completed = tasks.filter(taskDone).length
+  const progress = tasks.length ? Math.round(completed / tasks.length * 100) : 0
+  return <div className="content">
+    <PageHeading eyebrow="EQUIPE DO CERIMONIAL" title="Checklist do cerimonial" text="Organize as tarefas da equipe e acompanhe o que já foi concluído." action={<button className="primary-button touch-button" onClick={onAdd}><Plus size={18}/> Novo item</button>}/>
+    <div className="checklist-summary"><strong>{completed} de {tasks.length} concluídos</strong><span>{progress}%</span><div className="progress-track"><i style={{ width: `${progress}%` }}/></div></div>
+    {Object.entries(groups).length ? <div className="checklist-groups">{Object.entries(groups).map(([category, items]) => <section className="task-card category-card" key={category}><div className="category-heading"><span className="category-pin"/><h2>{category}</h2><span>{items.length} {items.length === 1 ? 'item' : 'itens'}</span></div>{items.map(task => <TaskRow key={task.id} task={task} onToggle={onToggle} onEdit={onEdit}/>)}</section>)}</div> : <EmptyState icon={<ClipboardCheck/>} title="Checklist do cerimonial vazio" text="Adicione o primeiro item para a equipe acompanhar as tarefas." action={<button className="primary-button touch-button" onClick={onAdd}><Plus size={18}/> Adicionar item</button>}/>}
+  </div>
+}
+
 function Vendors({ vendors, onAdd, onEdit }: { vendors: Vendor[]; onAdd: () => void; onEdit: (vendor: Vendor) => void }) {
   return <div className="content"><PageHeading eyebrow="PESSOAS QUE FARÃO PARTE DESTE DIA" title="Fornecedores" text="Contatos e informações práticas para a organização." action={<button className="primary-button touch-button" onClick={onAdd}><Plus size={18}/> Adicionar</button>}/>{vendors.length ? <div className="vendor-list">{vendors.map(vendor => <article className="vendor-card" key={vendor.id}><div className="vendor-symbol"><Flower2 size={22}/></div><div className="vendor-info"><span className="vendor-category">{vendor.category || 'Serviço'}</span><h2>{vendor.name}</h2>{vendor.contactName && <p><strong>Contato:</strong> {vendor.contactName}</p>}{vendor.phone && <a className="phone-link" href={whatsappHref(vendor.phone)} target="_blank" rel="noreferrer">WhatsApp · {vendor.phone}</a>}{vendor.notes && <p className="vendor-note">{vendor.notes}</p>}{vendor.dayInfo && <p className="vendor-dayinfo"><CalendarDays size={16}/>{vendor.dayInfo}</p>}<button className="text-link vendor-edit" onClick={() => onEdit(vendor)}>Editar informações</button></div></article>)}</div> : <EmptyState icon={<ContactRound/>} title="Sua equipe especial" text="Cadastre os contatos e as informações importantes para o dia." action={<button className="primary-button touch-button" onClick={onAdd}><Plus size={18}/> Adicionar fornecedor</button>}/>}</div>
 }
@@ -240,6 +266,28 @@ function TaskModal({ task, initialDay, onClose, onSave, onDelete }: { task: Task
   const [day, setDay] = useState<'planning' | 'eve' | 'wedding'>(task?.day ?? initialDay)
   const remove = () => { if (task && window.confirm(`Excluir a tarefa “${task.title}”?`)) { onDelete(task.id); onClose() } }
   return <Modal onClose={onClose}><form className="modal-form" onSubmit={e => { e.preventDefault(); if (!title.trim()) return; onSave({ ...(task ?? {}), id: task?.id ?? crypto.randomUUID(), title: title.trim(), description: description.trim(), category: category.trim() || 'Geral', dueDate, assignee: assignee.trim(), status, done: status === 'completed', day }) }}><div className="eyebrow">ORGANIZAÇÃO DO CASAMENTO</div><h2>{task ? 'Editar tarefa' : 'Nova tarefa'}</h2><label>Tarefa<input required autoFocus value={title} onChange={e => setTitle(e.target.value)} placeholder="O que precisa ser feito?"/></label><label>Descrição<textarea rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Detalhes e orientações para concluir a tarefa"/></label><div className="form-grid"><label>Categoria<input value={category} onChange={e => setCategory(e.target.value)} placeholder="Ex.: Cerimônia"/></label><label>Responsável<input value={assignee} onChange={e => setAssignee(e.target.value)} placeholder="Nome"/></label><label>Prazo<input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}/></label><label>Status<select value={status} onChange={e => setStatus(e.target.value as typeof status)}><option value="pending">Pendente</option><option value="in_progress">Em andamento</option><option value="completed">Concluída</option></select></label></div><label>Área<select value={day} onChange={e => setDay(e.target.value as typeof day)}><option value="planning">Planejamento</option><option value="eve">Véspera · 16/11/2026</option><option value="wedding">Casamento · 17/11/2026</option></select></label><div className="modal-actions">{task && <button type="button" className="delete-button touch-button" onClick={remove}><Trash2 size={18}/> Excluir tarefa</button>}<button className="primary-button touch-button modal-submit">Salvar tarefa</button></div></form></Modal>
+}
+
+function CeremonyTaskModal({ task, onClose, onSave, onDelete }: { task: Task | null; onClose: () => void; onSave: (task: Task) => void; onDelete: (id: string) => void }) {
+  const [title, setTitle] = useState(task?.title ?? '')
+  const [description, setDescription] = useState(task?.description ?? '')
+  const [category, setCategory] = useState(task?.category ?? 'Equipe do cerimonial')
+  const [dueDate, setDueDate] = useState(task?.dueDate ?? '')
+  const [assignee, setAssignee] = useState(task?.assignee ?? '')
+  const [status, setStatus] = useState<'pending' | 'in_progress' | 'completed'>(task?.status ?? (task?.done ? 'completed' : 'pending'))
+  const remove = () => { if (task && window.confirm(`Excluir o item “${task.title}”?`)) { onDelete(task.id); onClose() } }
+  return <Modal onClose={onClose}><form className="modal-form" onSubmit={event => {
+    event.preventDefault()
+    if (!title.trim()) return
+    onSave({ ...(task ?? {}), id: task?.id ?? crypto.randomUUID(), title: title.trim(), description: description.trim(), category: category.trim() || 'Equipe do cerimonial', dueDate, assignee: assignee.trim(), status, done: status === 'completed' })
+  }}>
+    <div className="eyebrow">CHECKLIST DO CERIMONIAL</div>
+    <h2>{task ? 'Editar item' : 'Novo item'}</h2>
+    <label>Tarefa<input required autoFocus value={title} onChange={event => setTitle(event.target.value)} placeholder="O que a equipe precisa fazer?"/></label>
+    <label>Descrição<textarea rows={3} value={description} onChange={event => setDescription(event.target.value)} placeholder="Detalhes para concluir a tarefa"/></label>
+    <div className="form-grid"><label>Categoria<input value={category} onChange={event => setCategory(event.target.value)} placeholder="Ex.: Cerimônia"/></label><label>Responsável<input value={assignee} onChange={event => setAssignee(event.target.value)} placeholder="Nome"/></label><label>Prazo<input type="date" value={dueDate} onChange={event => setDueDate(event.target.value)}/></label><label>Status<select value={status} onChange={event => setStatus(event.target.value as typeof status)}><option value="pending">Pendente</option><option value="in_progress">Em andamento</option><option value="completed">Concluída</option></select></label></div>
+    <div className="modal-actions">{task && <button type="button" className="delete-button touch-button" onClick={remove}><Trash2 size={18}/> Excluir item</button>}<button className="primary-button touch-button modal-submit">Salvar item</button></div>
+  </form></Modal>
 }
 
 function VendorModal({ vendor, onClose, onSave }: { vendor: Vendor | null; onClose: () => void; onSave: (vendor: Vendor) => void }) {

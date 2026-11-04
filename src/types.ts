@@ -36,6 +36,7 @@ export type WeddingData = {
   date: string
   venue: string
   tasks: Task[]
+  ceremonialTasks?: Task[]
   vendors: Vendor[]
   schedule?: ScheduleEntry[]
   [key: string]: unknown
