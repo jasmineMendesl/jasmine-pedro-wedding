@@ -39,7 +39,8 @@ const formatWhen = (value: string) => new Date(`${value}T12:00:00`).toLocaleDate
 const whatsappHref = (phone = '') => {
   const digits = phone.replace(/\D/g, '')
   const internationalNumber = digits.startsWith('55') ? digits : `55${digits}`
-  return `https://wa.me/${internationalNumber}`
+  const message = encodeURIComponent('Ola, faço parte do cerimonial da Jasmine Mendes.')
+  return `https://wa.me/${internationalNumber}?text=${message}`
 }
 
 export default function App() {
