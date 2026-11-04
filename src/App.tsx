@@ -12,6 +12,20 @@ const pages: { label: Page; icon: typeof Heart; short: string }[] = [
   { label: 'Cronograma', icon: CalendarDays, short: 'Dia 17/11' },
   { label: 'Véspera', icon: Sun, short: 'Véspera' },
 ]
+const pageSlugs: Record<Page, string> = {
+  'Início': '',
+  Checklist: 'checklist',
+  Fornecedores: 'fornecedores',
+  Cronograma: 'cronograma',
+  Véspera: 'vespera',
+}
+const pageFromLocation = (): Page => {
+  const baseUrl = import.meta.env.BASE_URL
+  const pathname = window.location.pathname
+  const pathWithinApp = pathname.startsWith(baseUrl) ? pathname.slice(baseUrl.length) : pathname.replace(/^\/+/, '')
+  const slug = pathWithinApp.replace(/\/+$/, '')
+  return pages.find(({ label }) => pageSlugs[label] === slug)?.label ?? 'Início'
+}
 const visibleTask = (task: Task) => task.category?.toLocaleLowerCase('pt-BR') !== 'financeiro'
 const taskDone = (task: Task) => task.done || task.status === 'completed'
 const weddingDate = new Date(2026, 10, 17)
@@ -73,7 +87,7 @@ function AccessBlocked({ message, onSignOut }: { message: string; onSignOut: () 
 
 function Workspace({ memberName, onSignOut }: { memberName: string; onSignOut: () => Promise<void> }) {
   const { data, setData, syncStatus, syncConflict, resolveSyncConflict } = useWeddingData()
-  const [page, setPage] = useState<Page>('Início')
+  const [page, setPage] = useState<Page>(pageFromLocation)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [taskModal, setTaskModal] = useState(false)
   const [taskDay, setTaskDay] = useState<'planning' | 'eve' | 'wedding'>('planning')
@@ -90,20 +104,31 @@ function Workspace({ memberName, onSignOut }: { memberName: string; onSignOut: (
   const saveVendor = (vendor: Vendor) => setData(d => ({ ...d, vendors: d.vendors.some(v => v.id === vendor.id) ? d.vendors.map(v => v.id === vendor.id ? { ...v, ...vendor } : v) : [...d.vendors, vendor] }))
   const saveEvent = (entry: ScheduleEntry) => setData(d => ({ ...d, schedule: [...(d.schedule ?? []).filter(e => e.id !== entry.id), entry].sort((a, b) => a.time.localeCompare(b.time)) }))
   const openNewTask = (day: 'planning' | 'eve' | 'wedding' = 'planning') => { setTaskDay(day); setEditingTask(null); setTaskModal(true) }
+  const navigateToPage = (nextPage: Page) => {
+    const nextPath = `${import.meta.env.BASE_URL}${pageSlugs[nextPage]}`
+    if (window.location.pathname !== nextPath) window.history.pushState({ page: nextPage }, '', nextPath)
+    setPage(nextPage)
+  }
+
+  useEffect(() => {
+    const handlePopState = () => setPage(pageFromLocation())
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   if (syncStatus === 'connecting') return <div className="loading-screen"><Flower2 size={28}/><span>Carregando o planejamento...</span></div>
 
   return <div className="app-shell">
-    <aside className="sidebar"><div className="brand"><span className="brand-mark"><Flower2 size={21}/></span><span>Jasmine <i>&</i> Pedro<small>WEDDING PLANNER</small></span></div><div className="side-caption">PLANEJAMENTO</div><nav>{pages.map(({ label, icon: Icon }) => <button key={label} className={`nav-item ${page === label ? 'active' : ''}`} onClick={() => setPage(label)}><Icon size={19}/><span>{label}</span>{page === label && <span className="nav-dot"/>}</button>)}</nav><div className="sidebar-bottom"><div className="love-note"><Heart size={17}/><p>Um dia para celebrar<br/>uma vida inteira.</p></div><span>FEITO COM CARINHO</span></div></aside>
+    <aside className="sidebar"><div className="brand"><span className="brand-mark"><Flower2 size={21}/></span><span>Jasmine <i>&</i> Pedro<small>WEDDING PLANNER</small></span></div><div className="side-caption">PLANEJAMENTO</div><nav>{pages.map(({ label, icon: Icon }) => <button key={label} className={`nav-item ${page === label ? 'active' : ''}`} onClick={() => navigateToPage(label)}><Icon size={19}/><span>{label}</span>{page === label && <span className="nav-dot"/>}</button>)}</nav><div className="sidebar-bottom"><div className="love-note"><Heart size={17}/><p>Um dia para celebrar<br/>uma vida inteira.</p></div><span>FEITO COM CARINHO</span></div></aside>
     <main className="main-area"><header className="topbar"><div className="breadcrumb">JASMINE & PEDRO <ChevronRight size={14}/><span>{page.toLocaleUpperCase('pt-BR')}</span></div><div className="topbar-right"><span className={`sync-indicator ${syncStatus}`}><i/><span className="sync-desktop">{syncStatus === 'saving' ? 'Salvando…' : syncStatus === 'synced' ? 'Sincronizado' : syncStatus === 'conflict' ? 'Conflito de sincronização' : syncStatus === 'error' ? 'Falha ao sincronizar' : 'Somente neste dispositivo'}</span><span className="sync-mobile">{syncStatus === 'saving' ? 'Salvando' : syncStatus === 'synced' ? 'OK' : syncStatus === 'conflict' ? 'Conflito' : syncStatus === 'error' ? 'Erro' : 'Local'}</span></span><InstallAppButton/>{memberName && memberName !== 'Planejamento local' && <button className="account-button" onClick={() => void onSignOut()} title={`Sair de ${memberName}`} aria-label="Sair"><span>{memberName.slice(0, 1).toLocaleUpperCase('pt-BR')}</span><LogOut size={15}/></button>}</div></header>
       {syncConflict && <section className="sync-conflict" role="alert"><div><strong>Há alterações em outro dispositivo.</strong><span>Escolha qual versão manter para evitar sobrescrever dados.</span></div><div><button onClick={() => resolveSyncConflict('remote')}>Usar versão do Supabase</button><button onClick={() => resolveSyncConflict('local')}>Manter esta versão</button></div></section>}
-      {page === 'Início' && <Dashboard data={data} tasks={tasks} pending={pending} completed={completed} schedule={data.schedule ?? []} setPage={setPage} onToggle={toggleTask} onAdd={() => openNewTask()}/ >}
+      {page === 'Início' && <Dashboard data={data} tasks={tasks} pending={pending} completed={completed} schedule={data.schedule ?? []} setPage={navigateToPage} onToggle={toggleTask} onAdd={() => openNewTask()}/ >}
       {page === 'Checklist' && <Checklist tasks={tasks} onToggle={toggleTask} onAdd={() => openNewTask()} onEdit={task => { setEditingTask(task); setTaskModal(true) }}/ >}
       {page === 'Fornecedores' && <Vendors vendors={data.vendors} onAdd={() => { setEditingVendor(null); setVendorModal(true) }} onEdit={vendor => { setEditingVendor(vendor); setVendorModal(true) }}/ >}
       {page === 'Cronograma' && <SchedulePage entries={data.schedule ?? []} onAdd={() => { setEditingEvent(null); setEventModal(true) }} onEdit={entry => { setEditingEvent(entry); setEventModal(true) }}/ >}
       {page === 'Véspera' && <EvePage tasks={tasks.filter(task => task.day === 'eve')} onToggle={toggleTask} onAdd={() => openNewTask('eve')} onEdit={task => { setEditingTask(task); setTaskModal(true) }}/ >}
     </main>
-    <nav className="mobile-nav" aria-label="Navegação principal">{pages.map(({ label, icon: Icon, short }) => <button key={label} onClick={() => setPage(label)} className={page === label ? 'selected' : ''}><Icon size={21}/><span>{short}</span></button>)}</nav>
+    <nav className="mobile-nav" aria-label="Navegação principal">{pages.map(({ label, icon: Icon, short }) => <button key={label} onClick={() => navigateToPage(label)} className={page === label ? 'selected' : ''}><Icon size={21}/><span>{short}</span></button>)}</nav>
     {taskModal && <TaskModal task={editingTask} initialDay={taskDay} onClose={() => setTaskModal(false)} onSave={task => { saveTask(task); setTaskModal(false) }} onDelete={deleteTask}/ >}
     {vendorModal && <VendorModal vendor={editingVendor} onClose={() => setVendorModal(false)} onSave={vendor => { saveVendor(vendor); setVendorModal(false) }}/ >}
     {eventModal && <ScheduleModal entry={editingEvent} onClose={() => setEventModal(false)} onSave={entry => { saveEvent(entry); setEventModal(false) }}/ >}

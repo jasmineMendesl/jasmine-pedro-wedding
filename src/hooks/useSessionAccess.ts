@@ -58,7 +58,7 @@ export function useSessionAccess() {
   const requestPasswordReset = async (email: string) => {
     if (!supabase) return false
     setMessage('')
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/` })
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}` })
     if (error) { setMessage('Não foi possível solicitar a recuperação agora. Tente novamente em instantes.'); return false }
     setMessage('Se este e-mail estiver cadastrado, você receberá um link para criar outra senha.')
     return true
