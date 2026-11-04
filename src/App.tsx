@@ -36,7 +36,11 @@ const daysUntilWedding = () => Math.ceil((new Date(weddingDate.getFullYear(), we
 const localDateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 const formatDate = (value: string) => value ? new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''
 const formatWhen = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-const whatsappHref = (phone = '') => `https://wa.me/${phone.replace(/\D/g, '')}`
+const whatsappHref = (phone = '') => {
+  const digits = phone.replace(/\D/g, '')
+  const internationalNumber = digits.startsWith('55') ? digits : `55${digits}`
+  return `https://wa.me/${internationalNumber}`
+}
 
 export default function App() {
   // Acesso anônimo temporário habilitado enquanto o site é usado sem contas.
