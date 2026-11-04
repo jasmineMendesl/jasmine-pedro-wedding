@@ -49,12 +49,11 @@ Use somente a chave publicável no frontend. Nunca coloque `service_role` ou out
 
 1. Crie um projeto Supabase e configure a URL e a chave publicável em `.env.local`.
 2. Execute `supabase/schema.sql` no SQL Editor para criar a tabela de estado do planejador.
-3. Revise `supabase/migrations/20261103_add_roles_and_lock_planner.sql`: ela contém os e-mails iniciais dos administradores. Troque-os pelos e-mails corretos antes de executar.
-4. Crie os usuários administradores no Supabase Auth com os mesmos e-mails definidos na migration de papéis.
-5. Aplique `20261103_add_roles_and_lock_planner.sql`, `20261104_enable_planner_realtime.sql` e `20261106_close_temporary_anonymous_planner_access.sql`, nessa ordem. A primeira migration associa os usuários que já existem.
-6. Defina `VITE_ENABLE_AUTH=true` para ativar o fluxo de login.
+3. Configure as tabelas de membros, políticas RLS, permissões e Realtime no processo privado de implantação do projeto.
+4. Crie os usuários e associe os papéis no Supabase Auth e na tabela de membros.
+5. Defina `VITE_ENABLE_AUTH=true` para ativar o fluxo de login depois que a configuração de acesso estiver pronta.
 
-`20261105_allow_anonymous_planner_temporarily.sql` abre temporariamente leitura e edição anônimas do estado do planejador. Não a aplique em uma instalação nova. A migration seguinte remove essas permissões; confirme as políticas e permissões efetivas no Supabase antes de colocar o app em uso.
+Por segurança, este repositório não inclui migrations nem a configuração completa de autenticação e papéis. O `schema.sql` contém apenas a tabela de estado do planejador; sem configurar as permissões e os demais objetos no Supabase, o modo autenticado não estará pronto para uso.
 
 ## Scripts
 

@@ -9,5 +9,5 @@ create table if not exists public.wedding_planner_state (
 -- Sem políticas públicas: sem políticas RLS, o acesso fica bloqueado por padrão.
 alter table public.wedding_planner_state enable row level security;
 
--- Para proteger a linha e configurar os papéis, aplique a migração:
--- supabase/migrations/20261103_add_roles_and_lock_planner.sql
+-- Configure papéis e políticas de acesso pelo processo privado de implantação
+-- antes de habilitar autenticação ou usar este planejador com dados reais.
